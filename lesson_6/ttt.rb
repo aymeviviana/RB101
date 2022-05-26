@@ -9,6 +9,10 @@ def prompt(msg)
   puts "=> #{msg}"
 end
 
+def pause(seconds)
+  sleep(seconds)
+end
+
 def user_select_player(first)
   loop do
     prompt "Who should go first? 'P' = Player, 'C' = Computer"
@@ -90,36 +94,42 @@ def player_select_square!(brd)
   brd[square] = PLAYER_MARKER
 end
 
-def random_sqr!(brd)
+def computer_select_square!(brd)
+  # SELECT OFFENSIVE SQUARE
+  square = select_strategic_square!(brd, COMPUTER_MARKER)
+
+  # SELECT DEFENSIVE SQUARE
+  if !square
+    square = select_strategic_square!(brd, PLAYER_MARKER)
+  end
+
+  # SELECT SQUARE 5
+  if !square && empty_squares(brd).include?(5)
+    brd[5] = COMPUTER_MARKER
+    square = true
+  end
+
+  # SELECT RANDOM SQUARE
+  if !square
+    select_random_square!(brd)
+  end
+end
+
+def select_strategic_square!(brd, marker)
+  WINNING_LINES.each do |line|
+    markers = brd.values_at(*line)
+    if markers.count(marker) == 2 && markers.count(INITIAL_MARKER) == 1
+      empty_square = line[markers.index(INITIAL_MARKER)]
+      brd[empty_square] = COMPUTER_MARKER
+      return true
+    end
+  end
+  false
+end
+
+def select_random_square!(brd)
   square = empty_squares(brd).sample
   brd[square] = COMPUTER_MARKER
-end
-
-# rubocop: disable Metrics/CyclomaticComplexity
-def computer_select_square!(brd)
-  # OFFENSE
-  WINNING_LINES.each do |line|
-    markers = brd.values_at(*line)
-    if markers.count(COMPUTER_MARKER) == 2 && markers.count(INITIAL_MARKER) == 1
-      select_empty_square!(brd, line, markers)
-      return nil
-    end
-  end
-  # DEFENSE
-  WINNING_LINES.each do |line|
-    markers = brd.values_at(*line)
-    if markers.count(PLAYER_MARKER) == 2 && markers.count(INITIAL_MARKER) == 1
-      select_empty_square!(brd, line, markers)
-      return nil
-    end
-  end
-  empty_squares(brd).include?(5) ? brd[5] = COMPUTER_MARKER : random_sqr!(brd)
-end
-# rubocop: enable Metrics/CyclomaticComplexity
-
-def select_empty_square!(brd, line, markers)
-  empty_square = line[markers.index(INITIAL_MARKER)]
-  brd[empty_square] = COMPUTER_MARKER
 end
 
 def board_full?(brd)
@@ -141,20 +151,23 @@ def detect_winner(brd)
   nil
 end
 
-# rubocop: disable Metrics/AbcSize
 def joinor(arr, delim=', ', word='or')
   if arr.size == 1
     arr[0].to_s
   elsif arr.size == 2
     arr[0].to_s + " #{word} " + arr[1].to_s
   else
-    result = arr.map do |num|
-      num == arr[-1] ? word + ' ' + num.to_s : num.to_s + delim
-    end
-    result.join
+    joinor_helper(arr, delim, word)
   end
 end
-# rubocop: enable Metrics/AbcSize
+
+def joinor_helper(arr, delim, word)
+  result = arr.map do |num|
+    num == arr[-1] ? word + ' ' + num.to_s : num.to_s + delim
+  end
+
+  result.join
+end
 
 def display_result(brd, scr)
   if someone_won?(brd)
@@ -185,6 +198,10 @@ loop do
   }
   round = 1
   first = ""
+  prompt "Welcome to TicTacToe!"
+  pause(1)
+  prompt "First player to win 5 rounds wins the game!"
+  pause(2)
   user_select_player(first)
 
   loop do
@@ -193,7 +210,7 @@ loop do
     start_game(board, score, round, current_player)
     display_board(board)
     display_result(board, score)
-    sleep 2
+    pause(2)
     five_wins?(score) ? declare_winner(score) : round += 1
     break if five_wins?(score)
   end
